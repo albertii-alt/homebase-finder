@@ -6,6 +6,19 @@ import React from "react";
 import { getBoardinghousesByOwner, getAllRooms } from "../hooks/useBoardinghouseStorage";
 import { useToast } from "../hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+// Recharts for Data Overview
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+  PieChart,
+  Pie,
+  Legend,
+} from "recharts";
 
 const Dashboard = () => {
   const isMobile = useIsMobile();
@@ -58,12 +71,12 @@ const Dashboard = () => {
       setRooms(bhs.flatMap((b) => b.rooms || []));
       // build activity log: prefer stored activityLog, otherwise synthesize from data
       try {
-        const stored = JSON.parse(localStorage.getItem("activityLog") ?? "null") as
-          | Array<{ ts: number; message: string; type?: string; meta?: any }>
-          | null;
-        if (Array.isArray(stored) && stored.length > 0) {
-          // show latest first
-          setActivityLog(stored.slice().sort((a, b) => b.ts - a.ts));
+        // Read raw value first. If an array exists (even empty) treat it as authoritative.
+        const raw = localStorage.getItem("activityLog");
+        const stored = raw ? JSON.parse(raw) : null;
+        if (Array.isArray(stored)) {
+          // Use stored array exactly (empty array means user cleared intentionally).
+          setActivityLog(stored.slice().sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0)));
         } else {
           const synthetic: Array<{ ts: number; message: string; type?: string; meta?: any }> = [];
           const now = Date.now();
@@ -82,17 +95,71 @@ const Dashboard = () => {
         setActivityLog([]);
       }
 
-      // build reminders/alerts for missing required fields
+      // read dismissed alerts so we don't show dismissed ones
+      const dismissed = (JSON.parse(localStorage.getItem("dismissedAlerts") ?? "[]") as string[]) || [];
+      // build reminders/alerts for missing required fields (per boardinghouse)
       const newAlerts: Array<{ id: string; message: string }> = [];
       bhs.forEach((bh) => {
-        if (rooms.length === 0) newAlerts.push({ id: `bh-${bh.id}-norooms`, message: `Boardinghouse "${bh.name || bh.id}" has no rooms.` });
-        rooms.forEach((r: any) => {
-          if (!r.roomName || !String(r.roomName).trim()) newAlerts.push({ id: `room-${r.id}-name`, message: `Room (${r.id}) in "${bh.name || bh.id}" is missing a name.` });
-          if (r.totalBeds == null || r.totalBeds === "") newAlerts.push({ id: `room-${r.id}-totalBeds`, message: `Room "${r.roomName || r.id}" is missing total beds.` });
-          if (r.rentPrice == null || r.rentPrice === "") newAlerts.push({ id: `room-${r.id}-rent`, message: `Room "${r.roomName || r.id}" is missing rent price.` });
+        const bhRooms = bh.rooms || [];
+        // missing rooms
+        if (bhRooms.length === 0) {
+          newAlerts.push({ id: `bh-${bh.id}-norooms`, message: `Boardinghouse "${bh.name || bh.id}" has no rooms.` });
+        }
+
+        // per-room missing fields
+        bhRooms.forEach((r: any) => {
+          if (!r.roomName || !String(r.roomName).trim()) {
+            newAlerts.push({ id: `bh-${bh.id}-room-${r.id}-name`, message: `Boardinghouse "${bh.name || bh.id}" — Room (${r.id}) is missing a name.` });
+          }
+          if (r.totalBeds == null || r.totalBeds === "") {
+            newAlerts.push({ id: `bh-${bh.id}-room-${r.id}-totalBeds`, message: `Boardinghouse "${bh.name || bh.id}" — Room "${r.roomName || r.id}" is missing total beds.` });
+          }
+          if (r.rentPrice == null || r.rentPrice === "") {
+            newAlerts.push({ id: `bh-${bh.id}-room-${r.id}-rent`, message: `Boardinghouse "${bh.name || bh.id}" — Room "${r.roomName || r.id}" is missing rent price.` });
+          }
         });
+
+        // boardinghouse-level missing fields (AddBoardinghouse / EditBoardinghouse)
+        // list of required fields shown on the Add/Edit pages
+        const bhMissing: Array<{ key: string; label: string }> = [
+          { key: "ownerName", label: "Owner Name" },
+          { key: "contact", label: "Contact No." },
+          { key: "name", label: "Boardinghouse Name" },
+          { key: "description", label: "Description" },
+          { key: "facebook", label: "Facebook Page URL" },
+        ];
+
+        // structured address parts
+        const sa: any = (bh as any).structuredAddress ?? {};
+        const addrMissing: Array<{ key: string; label: string; present: boolean }> = [
+          { key: "region", label: "Region", present: Boolean(sa.region || sa.region_code) },
+          { key: "province", label: "Province", present: Boolean(sa.province || sa.province_code) },
+          { key: "city", label: "City / Municipality", present: Boolean(sa.city || sa.city_code) },
+          { key: "barangay", label: "Barangay", present: Boolean(sa.barangay || sa.barangay_code) },
+          { key: "street", label: "Street / House No.", present: Boolean(sa.street) },
+          { key: "zip", label: "Zip Code", present: Boolean(sa.zip) },
+        ];
+
+        bhMissing.forEach((f) => {
+          if (!(bh as any)[f.key] || !String((bh as any)[f.key]).trim()) {
+            newAlerts.push({ id: `bh-${bh.id}-missing-${f.key}`, message: `Boardinghouse "${bh.name || bh.id}" is missing: ${f.label} (Add/Edit Boardinghouse page).` });
+          }
+        });
+
+        addrMissing.forEach((a) => {
+          if (!a.present) {
+            newAlerts.push({ id: `bh-${bh.id}-missing-addr-${a.key}`, message: `Boardinghouse "${bh.name || bh.id}" is missing address field: ${a.label} (Add/Edit Boardinghouse page).` });
+          }
+        });
+
+        // photos check - notify if no photos uploaded
+        const photos = (bh as any).photos || [];
+        if (!Array.isArray(photos) || photos.length === 0) {
+          newAlerts.push({ id: `bh-${bh.id}-missing-photos`, message: `Boardinghouse "${bh.name || bh.id}" has no photos. (Add/Edit Boardinghouse page)` });
+        }
       });
-      setAlerts(newAlerts);
+      // filter out any dismissed alerts before setting state
+      setAlerts(newAlerts.filter((a) => !dismissed.includes(a.id)));
     } else {
       setBoardinghouses([]);
       setRooms([]);
@@ -104,7 +171,7 @@ const Dashboard = () => {
   React.useEffect(() => {
     fetchData();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "boardinghouses" || e.key === "activityLog") fetchData();
+      if (e.key === "boardinghouses" || e.key === "activityLog" || e.key === "alertsCleared") fetchData();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -135,6 +202,123 @@ const Dashboard = () => {
     fetchData();
     toast({ title: "Dashboard refreshed", description: "Dashboard data refreshed successfully" });
   };
+
+  // Clear recent updates (activity log)
+  const clearActivity = () => {
+    try {
+      // Persist an explicit empty array so fetchData treats it as intentionally cleared
+      localStorage.setItem("activityLog", JSON.stringify([]));
+    } catch {}
+    setActivityLog([]);
+    toast({ title: "Recent updates cleared" });
+  };
+
+  // Clear reminders/alerts
+  const clearAlerts = () => {
+    try {
+      // persist a flag so other tabs/windows can respond (if needed)
+      // mark all current alerts as dismissed so they won't be rebuilt on fetch
+      const existing = alerts.map((a) => a.id);
+      const prev = JSON.parse(localStorage.getItem("dismissedAlerts") ?? "[]") as string[];
+      const merged = Array.from(new Set([...(prev || []), ...existing]));
+      localStorage.setItem("dismissedAlerts", JSON.stringify(merged));
+    } catch {}
+    setAlerts([]);
+    toast({ title: "Reminders & Alerts cleared" });
+  };
+  
+  // delete a single activity item (persisted to activityLog)
+  const deleteActivityItem = (tsKey: number, metaId?: string | number) => {
+    const idKey = `${tsKey}-${metaId ?? ""}`;
+    const next = activityLog.filter((a) => `${a.ts}-${a.meta?.id ?? ""}` !== idKey);
+    try {
+      // persist remaining activities
+      localStorage.setItem("activityLog", JSON.stringify(next));
+    } catch {}
+    setActivityLog(next);
+    toast({ title: "Activity removed" });
+  };
+
+  // dismiss a single alert (persisted to dismissedAlerts so it won't be rebuilt)
+  const dismissAlertItem = (alertId: string) => {
+    const next = alerts.filter((a) => a.id !== alertId);
+    try {
+      const prev = JSON.parse(localStorage.getItem("dismissedAlerts") ?? "[]") as string[];
+      const merged = Array.from(new Set([...(prev || []), alertId]));
+      localStorage.setItem("dismissedAlerts", JSON.stringify(merged));
+    } catch {}
+    setAlerts(next);
+    toast({ title: "Reminder dismissed" });
+  };
+  
+  // single expand/collapse state controlling both sections
+  const [expandedAll, setExpandedAll] = React.useState(false);
+  const LIST_COLLAPSE_COUNT = 5; // show up to 5 items when collapsed
+
+  // measure real DOM heights for robust collapsed/expanded sizing (avoids clipping)
+  const activityListRef = React.useRef<HTMLDivElement | null>(null);
+  const alertsListRef = React.useRef<HTMLDivElement | null>(null);
+  const bottomGridRef = React.useRef<HTMLDivElement | null>(null);
+
+  const [activityCollapsedH, setActivityCollapsedH] = React.useState<number>(0);
+  const [activityExpandedH, setActivityExpandedH] = React.useState<number>(0);
+  const [alertsCollapsedH, setAlertsCollapsedH] = React.useState<number>(0);
+  const [alertsExpandedH, setAlertsExpandedH] = React.useState<number>(0);
+
+  const measureListHeights = (listEl: HTMLDivElement | null, count: number) => {
+    if (!listEl) return { collapsed: 0, expanded: 0 };
+    const children = Array.from(listEl.children) as HTMLElement[];
+    // expanded is the scrollHeight (includes padding)
+    const expanded = listEl.scrollHeight || children.reduce((s, c) => s + c.getBoundingClientRect().height, 0);
+    const cs = window.getComputedStyle(listEl);
+    const gap = parseFloat(cs.rowGap || cs.gap || "0") || 0;
+    const padTop = parseFloat(cs.paddingTop || "0") || 0;
+    const padBottom = parseFloat(cs.paddingBottom || "0") || 0;
+
+    const visibleChildren = children.slice(0, Math.max(0, Math.min(count, children.length)));
+    const collapsed = visibleChildren.reduce((s, c, idx) => s + c.getBoundingClientRect().height + (idx > 0 ? gap : 0), 0) + padTop + padBottom;
+    const SAFETY = 4;
+    return { collapsed: Math.ceil(collapsed + SAFETY), expanded: Math.ceil(expanded + SAFETY) };
+  };
+
+  // measure whenever lists change or window resizes
+  React.useLayoutEffect(() => {
+    const measureAll = () => {
+      const a = measureListHeights(activityListRef.current, LIST_COLLAPSE_COUNT);
+      setActivityCollapsedH(a.collapsed || 48);
+      setActivityExpandedH(a.expanded || Math.max(a.collapsed, 200));
+      const b = measureListHeights(alertsListRef.current, LIST_COLLAPSE_COUNT);
+      setAlertsCollapsedH(b.collapsed || 48);
+      setAlertsExpandedH(b.expanded || Math.max(b.collapsed, 200));
+    };
+    measureAll();
+    const onResize = () => measureAll();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [activityLog, alerts, LIST_COLLAPSE_COUNT]);
+
+  // helpers used by the toggle buttons
+  const activityHasMore = activityLog.length > LIST_COLLAPSE_COUNT;
+  const alertsHasMore = alerts.length > LIST_COLLAPSE_COUNT;
+ 
+  const toggleExpandAll = () => {
+     setExpandedAll((prev) => {
+       const next = !prev;
+       // if we're expanding, scroll the bottom grid into view after the height transition starts/finishes
+       if (!prev) {
+         // match transition duration (360ms) and allow slight extra time
+         window.setTimeout(() => {
+           bottomGridRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+         }, 420);
+       } else {
+         // when collapsing, gently ensure the top of the bottom-grid is visible
+         window.setTimeout(() => {
+           bottomGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+         }, 200);
+       }
+       return next;
+     });
+   };
 
   // Quick action helpers
   const goAddBoardinghouse = () => navigate("/add-boardinghouse");
@@ -175,11 +359,11 @@ const Dashboard = () => {
     return { male, female, any: anyCount };
   }, [rooms]);
 
-  const roomsWithCRPercent = totalRooms > 0 ? Math.round((roomsWithCR / totalRooms) * 100) : 0;
-  const maxGenderCount = Math.max(1, roomsByGenderCounts.male, roomsByGenderCounts.female, roomsByGenderCounts.any);
-
-  return (
-    <div className="app-layout">
+   const roomsWithCRPercent = totalRooms > 0 ? Math.round((roomsWithCR / totalRooms) * 100) : 0;
+   const maxGenderCount = Math.max(1, roomsByGenderCounts.male, roomsByGenderCounts.female, roomsByGenderCounts.any);
+ 
+   return (
+     <div className="app-layout">
       <Sidebar />
       <div
         className="main-content dashboard-content"
@@ -336,6 +520,83 @@ const Dashboard = () => {
           )}
         </div>
 
+        {/* Data Overview Section (Recharts) */}
+        <div className="dashboard-section">
+          <div className="section-header">
+            <h2 className="section-title">Data Overview</h2>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 320px", padding: 12, background: "#fff", borderRadius: 8, boxShadow: "0 1px 2px rgba(0,0,0,.05)" }}>
+              <p style={{ margin: 0, fontWeight: 600 }}>Rooms by Gender</p>
+              {/*
+                Build the data for the bar chart. ResponsiveContainer keeps the chart responsive.
+              */}
+              {(() => {
+                const genderData = [
+                    { name: "Male", value: roomsByGenderCounts.male },
+                    { name: "Female", value: roomsByGenderCounts.female },
+                    { name: "Any/Other", value: roomsByGenderCounts.any },
+                ];
+                const colors = ["#3b82f6", "#ec4899", "#6b7280"];
+                return (
+                  <div style={{ width: "100%", height: 180, marginTop: 8 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={genderData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} width={24} />
+                    <Tooltip formatter={(v: any) => [v, "Rooms"]} />
+                        <Bar dataKey="value" barSize={36}>
+                          {genderData.map((entry, idx) => (
+                            <Cell key={`c-${idx}`} fill={colors[idx % colors.length]} />
+                          ))}
+                        </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+                );
+              })()}
+            </div>
+
+            <div style={{ flex: "0 0 240px", padding: 12, background: "#fff", borderRadius: 8, boxShadow: "0 1px 2px rgba(0,0,0,.05)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <p style={{ margin: 0, fontWeight: 600 }}>Rooms with CR</p>
+              {(() => {
+                const crData = [
+                  { name: "With CR", value: roomsWithCR },
+                  { name: "Without CR", value: Math.max(0, totalRooms - roomsWithCR) },
+                ];
+                const CR_COLORS = ["#10b981", "#e5e7eb"];
+                return (
+              <div style={{ width: "100%", height: 140, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 8 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                          data={crData}
+                      innerRadius={34}
+                      outerRadius={56}
+                          dataKey="value"
+                      startAngle={90}
+                      endAngle={-270}
+                      labelLine={false}
+                    >
+                          {crData.map((entry, idx) => (
+                            <Cell key={`cr-${idx}`} fill={CR_COLORS[idx % CR_COLORS.length]} />
+                          ))}
+                    </Pie>
+                    <Legend verticalAlign="bottom" height={24} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+                );
+              })()}
+              <div style={{ marginTop: 6, textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{roomsWithCRPercent}%</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>{roomsWithCR} of {totalRooms} rooms</div>
+              </div>
+            </div>
+              </div>
+            </div>
+
         {/* Quick Actions */}
         <div className="dashboard-section">
           <h2 className="section-title">Quick Actions</h2>
@@ -357,203 +618,167 @@ const Dashboard = () => {
               Upload Boardinghouse Photos
             </button>
           </div>
-        </div>
+              </div>
 
         {/* Bottom Grid: Recent Activities & Alerts */}
-        <div className="bottom-grid">
+        <div className="bottom-grid" ref={bottomGridRef}>
           {/* Recent Updates */}
           <div className="dashboard-section">
-            <h2 className="section-title">Recent Updates</h2>
-            <div className="activity-feed">
-              {activityLog.length === 0 ? (
-                <div className="activity-item">
-                  <div className="activity-content">
-                    <p className="activity-text">No recent activity available.</p>
-                  </div>
-                </div>
-              ) : (
-                activityLog.slice(0, 20).map((a, i) => (
-                  <div key={i} className="activity-item">
-                    <div className="activity-icon">
-                      <TrendingUp size={16} />
-                    </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 className="section-title" style={{ margin: 0 }}>Recent Updates</h2>
+              <button
+                onClick={clearActivity}
+                className="btn-clear"
+                style={{ background: "transparent", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 14 }}
+                aria-label="Clear recent updates"
+              >
+                Clear All
+              </button>
+            </div>
+
+            {/* animated container - uses containerStyle(count) which reads expandedAll */}
+            <div
+              style={{
+                overflow: "hidden",
+                maxHeight: expandedAll ? activityExpandedH : activityCollapsedH,
+                transition: "max-height 360ms cubic-bezier(.2,.9,.2,1), opacity 220ms ease",
+                willChange: "max-height",
+              }}
+              aria-live="polite"
+            >
+              <div className="activity-feed" ref={activityListRef}>
+                {activityLog.length === 0 ? (
+                  <div className="activity-item">
                     <div className="activity-content">
-                      <p className="activity-text">{a.message}</p>
-                      <p className="activity-time">{new Date(a.ts).toLocaleString()}</p>
+                      <p className="activity-text">No recent activity available.</p>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Reminders/Alerts */}
-          <div className="dashboard-section">
-            <h2 className="section-title">Reminders & Alerts</h2>
-            <div className="alerts-container">
-              {alerts.length === 0 ? (
-                <div className="alert-item alert-ok">
-                  <AlertCircle size={20} />
-                  <span>All required fields appear filled.</span>
-                </div>
-              ) : (
-                alerts.map((al) => (
-                  <div key={al.id} className="alert-item alert-warning" title={al.message} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <AlertCircle size={18} />
-                    <span>{al.message}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Data Overview Charts Section */}
-        <div className="dashboard-section">
-          <h2 className="section-title">Data Overview</h2>
-          <div className="charts-grid">
-            <div className="chart-card">
-              <h3 className="chart-title">Rooms with CR</h3>
-              <div className="chart-placeholder" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ width: 120, height: 120, position: "relative" }}>
-                  {/* simple donut */}
-                  <svg viewBox="0 0 36 36" style={{ width: 120, height: 120 }}>
-                    <path
-                      d="M18 2.0845
-                         a 15.9155 15.9155 0 0 1 0 31.831
-                         a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke="#e6eef2"
-                      strokeWidth="6"
-                    />
-                    <path
-                      d="M18 2.0845
-                         a 15.9155 15.9155 0 0 1 0 31.831"
-                      fill="none"
-                      stroke="#06b6d4"
-                      strokeWidth="6"
-                      strokeDasharray={`${roomsWithCRPercent} ${100 - roomsWithCRPercent}`}
-                      strokeDashoffset="25"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: 24, fontWeight: 700 }}>{roomsWithCR}</div>
-                  <div style={{ color: "#666" }}>{roomsWithCRPercent}% of rooms</div>
-                  <div style={{ marginTop: 8, color: "#444" }}>{totalRooms} total rooms</div>
-                </div>
+                ) : (
+                  activityLog.map((a, i) => {
+                    const itemKey = `${a.ts}-${a.meta?.id ?? i}`;
+                    return (
+                      <div key={itemKey} className="activity-item" style={{ position: "relative" }}>
+                        <button
+                          onClick={() => deleteActivityItem(a.ts, a.meta?.id)}
+                          aria-label="Delete activity"
+                          title="Delete"
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            border: "none",
+                            background: "transparent",
+                            cursor: "pointer",
+                            fontSize: 14,
+                            color: "#9ca3af",
+                          }}
+                        >
+                          ×
+                        </button>
+                        <div className="activity-icon">
+                          <TrendingUp size={16} />
+                        </div>
+                        <div className="activity-content">
+                          <p className="activity-text">{a.message}</p>
+                          <p className="activity-time">{new Date(a.ts).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
-            <div className="chart-card">
-              <h3 className="chart-title">Rooms by Gender</h3>
+            {/* bottom-right Show All / Show less button - toggles both panels */}
+            {activityLog.length > LIST_COLLAPSE_COUNT && (
+               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                 <button
+                   onClick={toggleExpandAll}
+                   className="btn-toggle"
+                   style={{ background: "transparent", border: "none", color: "#374151", cursor: "pointer", fontSize: 13 }}
+                   aria-expanded={expandedAll}
+                 >
+                   {expandedAll ? "Show less" : `Show all (${activityLog.length})`}
+                 </button>
+               </div>
+             )}
+           </div>
+ 
+           {/* Reminders/Alerts */}
+           <div className="dashboard-section">
+             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+               <h2 className="section-title" style={{ margin: 0 }}>Reminders & Alerts</h2>
+               <button
+                 onClick={clearAlerts}
+                 className="btn-clear"
+                 style={{ background: "transparent", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 14 }}
+                 aria-label="Clear reminders and alerts"
+               >
+                 Clear All
+               </button>
+             </div>
 
-              {/* SVG bar chart to match provided image (dark bg, axis, value labels) */}
-              <div className="chart-placeholder" style={{ padding: 12 }}>
-                {(() => {
-                  // chart layout
-                  const labels = [
-                    { key: "male", label: "Male", count: roomsByGenderCounts.male, color: "#3b82f6" },
-                    { key: "female", label: "Female", count: roomsByGenderCounts.female, color: "#ec4899" },
-                    { key: "any", label: "Any", count: roomsByGenderCounts.any, color: "#8b5cf6" },
-                  ];
-                  const width = 420;
-                  const height = 220;
-                  const padding = { top: 18, right: 18, bottom: 44, left: 36 };
-                  const plotW = width - padding.left - padding.right;
-                  const plotH = height - padding.top - padding.bottom;
-                  const maxVal = Math.max(1, maxGenderCount);
-                  const barWidth = Math.floor(plotW / (labels.length * 1.8));
-                  const gap = Math.floor((plotW - labels.length * barWidth) / (labels.length + 1));
-
-                  return (
-                    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
-                      {/* background similar to provided image */}
-                      <rect x="0" y="0" width={width} height={height} fill="#0b0f12" rx="6" />
-
-                      {/* y-axis ticks and gridlines */}
-                      {[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
-                        const y = padding.top + plotH - t * plotH;
-                        const val = Math.round(t * maxVal);
-                        return (
-                          <g key={i}>
-                            <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="#172027" strokeWidth={1} />
-                            <text x={padding.left - 8} y={y + 4} fontSize="11" fill="#9aa6b2" textAnchor="end">{val}</text>
-                          </g>
-                        );
-                      })}
-
-                      {/* x-axis line */}
-                      <line
-                        x1={padding.left}
-                        x2={width - padding.right}
-                        y1={padding.top + plotH + 6}
-                        y2={padding.top + plotH + 6}
-                        stroke="#2b3640"
-                        strokeWidth={2}
-                      />
-
-                      {/* bars */}
-                      {labels.map((g, idx) => {
-                        const barHeight = (g.count / maxVal) * plotH;
-                        const x = padding.left + gap + idx * (barWidth + gap);
-                        const y = padding.top + plotH - barHeight;
-                        return (
-                          <g key={g.key}>
-                            {/* bar */}
-                            <rect
-                              x={x}
-                              y={y}
-                              width={barWidth}
-                              height={Math.max(4, barHeight)}
-                              rx={6}
-                              fill={g.color}
-                            />
-                            {/* value label on top */}
-                            <text x={x + barWidth / 2} y={y - 6} fontSize="12" fill="#ffffff" fontWeight="700" textAnchor="middle">
-                              {g.count}
-                            </text>
-                            {/* bottom category label */}
-                            <text
-                              x={x + barWidth / 2}
-                              y={padding.top + plotH + 22}
-                              fontSize="13"
-                              fill="#e6eef2"
-                              textAnchor="middle"
-                            >
-                              {g.label}
-                            </text>
-                          </g>
-                        );
-                      })}
-
-                      {/* left axis label (0) at bottom */}
-                      <text x={padding.left - 8} y={padding.top + plotH + 20} fontSize="11" fill="#9aa6b2" textAnchor="end">0</text>
-                    </svg>
-                  );
-                })()}
-
-                <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <span style={{ width: 12, height: 12, background: "#3b82f6", borderRadius: 3 }} />
-                    <small style={{ color: "#334155" }}>Male</small>
-                    <span style={{ width: 12, height: 12, background: "#ec4899", borderRadius: 3 }} />
-                    <small style={{ color: "#334155" }}>Female</small>
-                    <span style={{ width: 12, height: 12, background: "#8b5cf6", borderRadius: 3 }} />
-                    <small style={{ color: "#334155" }}>Any</small>
+             {/* animated container - shares expandedAll state so toggling one toggles both */}
+             <div
+              style={{
+                overflow: "hidden",
+                maxHeight: expandedAll ? alertsExpandedH : alertsCollapsedH,
+                transition: "max-height 360ms cubic-bezier(.2,.9,.2,1), opacity 220ms ease",
+                willChange: "max-height",
+              }}
+              aria-live="polite"
+            >
+              <div className="alerts-container" ref={alertsListRef}>
+                {alerts.length === 0 ? (
+                  <div className="alert-item alert-ok">
+                    <AlertCircle size={20} />
+                    <span>All required fields appear filled.</span>
                   </div>
-
-                  <div style={{ color: "#94a3b8", fontSize: 13 }}>
-                    <strong style={{ color: "#fff" }}>{rooms.length}</strong> total rooms
-                  </div>
-                </div>
+                ) : (
+                  alerts.map((al) => (
+                    <div key={al.id} className="alert-item alert-warning" title={al.message} style={{ display: "flex", gap: 8, alignItems: "center", position: "relative" }}>
+                      <button
+                        onClick={() => dismissAlertItem(al.id)}
+                        aria-label="Dismiss alert"
+                        title="Dismiss"
+                        style={{
+                          position: "absolute",
+                          top: 8,
+                          right: 8,
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          fontSize: 14,
+                          color: "#92400e",
+                        }}
+                      >
+                        ×
+                      </button>
+                      <AlertCircle size={18} />
+                      <span>{al.message}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
+
+            {/* bottom-right Show All / Show less button - toggles both panels */}
+            {alerts.length > LIST_COLLAPSE_COUNT && (
+             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+               <button
+                 onClick={toggleExpandAll}
+                 className="btn-toggle"
+                 style={{ background: "transparent", border: "none", color: "#374151", cursor: "pointer", fontSize: 13 }}
+                 aria-expanded={expandedAll}
+               >
+                 {expandedAll ? "Show less" : `Show all (${alerts.length})`}
+               </button>
+             </div>
+           )}
           </div>
         </div>
       </div>
     </div>
-  );
-};
-
+   );
+}
 export default Dashboard;

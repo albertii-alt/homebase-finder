@@ -12,6 +12,7 @@ import AddRoom from "./pages/AddRoom";
 import EditRoom from "./pages/EditRoom";
 import BoardinghouseDetails from "./pages/BoardinghouseDetails";
 import AccountSettings from "./pages/AccountSettings";
+import AddedRooms from "./pages/AddedRooms";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -38,6 +39,7 @@ export default function App(): JSX.Element {
             <Route path="/edit-boardinghouse/:id" element={<EditBoardinghouse />} />
             <Route path="/add-room" element={<AddRoom />} />
             <Route path="/edit-room" element={<EditRoom />} />
+            <Route path="/added-rooms" element={<AddedRooms />} />
             <Route path="/account-settings" element={<AccountSettings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

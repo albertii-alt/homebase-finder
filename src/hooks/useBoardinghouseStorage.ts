@@ -46,6 +46,21 @@ function genId(prefix = ""): string {
   return `${prefix}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// new helper: push activity entry to localStorage activityLog (most-recent-first)
+function pushActivity(entry: { ts: number; message: string; type?: string; meta?: any }) {
+  try {
+    const raw = localStorage.getItem("activityLog");
+    const list = safeParse<Array<{ ts: number; message: string; type?: string; meta?: any }>>(raw, []);
+    list.unshift(entry);
+    // keep recent 200 entries to avoid unbounded growth
+    if (list.length > 200) list.length = 200;
+    localStorage.setItem("activityLog", JSON.stringify(list));
+    // also trigger storage event for other windows/tabs (some browsers need setItem)
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Return boardinghouses owned by the provided email.
  */
@@ -70,6 +85,10 @@ export function addBoardinghouse(newBoardinghouse: Boardinghouse): Boardinghouse
   };
   all.unshift(item);
   writeAll(all);
+
+  // record activity
+  pushActivity({ ts: Date.now(), message: `Boardinghouse saved: ${item.name || item.id}`, type: "boardinghouse", meta: { id: item.id } });
+
   return item;
 }
 
@@ -80,7 +99,6 @@ export function updateBoardinghouse(updatedBoardinghouse: Boardinghouse): boolea
   const all = readAll();
   const idx = all.findIndex((b) => b.id === updatedBoardinghouse.id);
   if (idx === -1) return false;
-  // preserve rooms/photos/ownerName if caller omits them unintentionally
   const preserved: Boardinghouse = {
     ...all[idx],
     ...updatedBoardinghouse,
@@ -90,6 +108,10 @@ export function updateBoardinghouse(updatedBoardinghouse: Boardinghouse): boolea
   };
   all[idx] = preserved;
   writeAll(all);
+
+  // record activity
+  pushActivity({ ts: Date.now(), message: `Boardinghouse updated: ${preserved.name || preserved.id}`, type: "boardinghouse", meta: { id: preserved.id } });
+
   return true;
 }
 
@@ -102,6 +124,10 @@ export function deleteBoardinghouse(id: string): boolean {
   const filtered = all.filter((b) => b.id !== id);
   if (filtered.length === all.length) return false;
   writeAll(filtered);
+
+  // record activity
+  pushActivity({ ts: Date.now(), message: `Boardinghouse deleted: ${id}`, type: "boardinghouse", meta: { id } });
+
   return true;
 }
 
@@ -123,6 +149,10 @@ export function addRoom(boardinghouseId: string, room: Room): Room | null {
   };
   all[idx].rooms = all[idx].rooms ? [newRoom, ...all[idx].rooms] : [newRoom];
   writeAll(all);
+
+  // record activity
+  pushActivity({ ts: Date.now(), message: `Room added: ${newRoom.roomName || newRoom.id}`, type: "room", meta: { bhId: boardinghouseId, roomId: newRoom.id } });
+
   return newRoom;
 }
 
@@ -146,6 +176,10 @@ export function updateRoom(boardinghouseId: string, updatedRoom: Room): boolean 
   };
   all[bhIdx].rooms[roomIdx] = merged;
   writeAll(all);
+
+  // record activity
+  pushActivity({ ts: Date.now(), message: `Room updated: ${merged.roomName || merged.id}`, type: "room", meta: { bhId: boardinghouseId, roomId: merged.id } });
+
   return true;
 }
 
@@ -161,6 +195,10 @@ export function deleteRoom(boardinghouseId: string, roomId: string): boolean {
   if (filtered.length === rooms.length) return false;
   all[bhIdx].rooms = filtered;
   writeAll(all);
+
+  // record activity
+  pushActivity({ ts: Date.now(), message: `Room deleted: ${roomId}`, type: "room", meta: { bhId: boardinghouseId, roomId } });
+
   return true;
 }
 

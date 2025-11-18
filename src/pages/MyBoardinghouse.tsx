@@ -121,6 +121,7 @@ export default function MyBoardinghouse() {
               buttons aligned to the right using marginLeft: 'auto' */}
           {boardinghouses.length > 0 && (
             <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+              {/* "Add" here now navigates to Added Rooms overview for the selected boardinghouse */}
               <Link
                 to="/add-boardinghouse"
                 className="btn-add-small"

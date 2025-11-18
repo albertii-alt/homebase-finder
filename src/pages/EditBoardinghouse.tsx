@@ -481,54 +481,67 @@ export default function EditBoardinghouse() {
 
         <div className="form-container">
           <div className="form-row">
+          <div className="form-group">
+            <label>Owner Name</label>
             <input
               type="text"
               placeholder="Owner Name"
-              className="form-input half"
+              className="form-input-room" 
               value={ownerName}
               onChange={(e) => setOwnerName(e.target.value)}
             />
+          </div>
+          <div className="form-group">
+            <label>Contact No.</label>
             <input
               type="text"
               placeholder="Contact No."
-              className="form-input half"
+              className="form-input-room-half"
               value={contact}
               onChange={(e) => setContact(e.target.value)}
             />
-            <Link to="/edit-room" className="btn-add-room-side">
-              Edit Room
+            </div>
+            <div className="form-group">
+            <Link to="/added-rooms" className="btn-add-room-side">
+              Added Rooms
             </Link>
+            </div>
           </div>
-          <div className="form-row">
+          
+          <div className="form-group">
+            <label>Boardinghouse Name </label>
             <input
               type="text"
               placeholder="Boardinghouse Name"
-              className="form-input"
+              className="form-input-room"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          {/* Description input (kept / restored) */}
-          <div className="form-row">
+          {/* Description input (kept / restored) */}          
+          <div className="form-group">
+            <label>Description</label>
             <textarea
               placeholder="Description"
-              className="form-input"
+              className="form-input-room"
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-          <div className="form-row">
+          
+          <div className="form-group">
+              <label>Facebook Page URL</label>
               <input
                 type="text"
                 placeholder="Facebook Page URL"
-                className="form-input"
+                className="form-input-room"
                 value={facebook}
                 onChange={(e) => setFacebook(e.target.value)}
               />
           </div>
           <div className="form-group">
-            <label>Region / Province / City / Barangay</label>
+            <label>Full Address/Location</label>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <select

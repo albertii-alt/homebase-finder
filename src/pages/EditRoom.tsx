@@ -1,5 +1,5 @@
 import { ArrowLeft, Plus } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import "../styles/boardinghouse.css";
 import { useIsMobile } from "../hooks/use-mobile";
@@ -9,6 +9,8 @@ import { getBoardinghousesByOwner, updateRoom } from "../hooks/useBoardinghouseS
 import { useToast } from "../hooks/use-toast";
 
 export default function EditRoom() {
+  const location = useLocation();
+  const fromState = (location.state as any)?.from as string | undefined;
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const params = useParams<{ bhId?: string; roomId?: string }>();
@@ -39,6 +41,26 @@ export default function EditRoom() {
   const [cookingAllowed, setCookingAllowed] = React.useState<boolean>(false);
   const [inclusions, setInclusions] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
+
+  // Select-all checkbox ref & sync (for indeterminate state)
+  const selectAllRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    const ref = selectAllRef.current;
+    if (!ref) return;
+    const all = inclusionsList.length > 0 && inclusions.length === inclusionsList.length;
+    const some = inclusions.length > 0 && inclusions.length < inclusionsList.length;
+    ref.checked = all;
+    ref.indeterminate = some;
+  }, [inclusions, inclusionsList]);
+
+  const handleToggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setInclusions([...inclusionsList]);
+    } else {
+      setInclusions([]);
+    }
+  };
 
   // get current user email
   const currentUser = React.useMemo(() => {
@@ -85,11 +107,15 @@ export default function EditRoom() {
       setBoardinghouse(bh);
       setRooms(bh.rooms ?? []);
 
-      // if roomId provided via params, auto-select it
-      const roomIdParam = params.roomId;
-      if (roomIdParam) {
-        setSelectedRoomId(roomIdParam);
-        const r = bh.rooms?.find((x) => x.id === roomIdParam);
+      // auto-select a room to edit:
+      // prefer roomId in params, otherwise any selectedRoomId from storage,
+      // otherwise default to the first room (if present).
+      const roomIdParam = params.roomId ?? localStorage.getItem("selectedRoomId") ?? undefined;
+      const roomToUse = roomIdParam ?? (bh.rooms && bh.rooms.length > 0 ? bh.rooms[0].id : undefined);
+
+      if (roomToUse) {
+        setSelectedRoomId(roomToUse);
+        const r = bh.rooms?.find((x) => x.id === roomToUse);
         if (r) {
           setRoomName(r.roomName);
           setTotalBeds(r.totalBeds);
@@ -100,6 +126,10 @@ export default function EditRoom() {
           setCookingAllowed(Boolean(r.cookingAllowed));
           setInclusions(r.inclusions || []);
         }
+        // cleanup stored selectedRoomId to avoid stale values
+        try {
+          localStorage.removeItem("selectedRoomId");
+        } catch {}
       }
     } finally {
       setLoading(false);
@@ -205,7 +235,7 @@ export default function EditRoom() {
         <Sidebar />
         <div className="main-content" style={{ marginLeft: isMobile ? undefined : "260px", minHeight: "100vh" }}>
           <div className="page-header">
-            <Link to="/edit-boardinghouse" className="back-button">
+            <Link to={fromState ?? "/added-rooms"} className="back-button">
               <ArrowLeft />
             </Link>
             <h1>Edit Rooms</h1>
@@ -229,24 +259,25 @@ export default function EditRoom() {
         }}
       >
         <div className="page-header">
-          <Link to={`/edit-boardinghouse/${boardinghouse?.id ?? ""}`} className="back-button">
+          <Link to={fromState ?? "/added-rooms"} className="back-button">
             <ArrowLeft />
           </Link>
           <h1>Edit Rooms</h1>
         </div>
 
         <div className="form-container">
+          {/* removed room selection - page now edits the automatically-selected room */}
+
           <div className="form-group">
             <label>Room Name:</label>
-            <select className="form-select-room" value={selectedRoomId} onChange={(e) => onSelectRoom(e.target.value)}>
-              <option value="">-- Select room --</option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.roomName}
-                </option>
-              ))}
-            </select>
-          </div>
+            <input
+              type="text"
+              className="form-input-room"
+              placeholder="Enter room name"
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+            />
+           </div>
 
           <div className="info-section">
             <label className="section-label">Information:</label>
@@ -293,7 +324,13 @@ export default function EditRoom() {
           </div>
 
           <div className="inclusions-section">
-            <label>Inclusions:</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <label style={{ margin: 0 }}>Inclusions:</label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                <input ref={selectAllRef} type="checkbox" onChange={handleToggleSelectAll} />
+                <span style={{ opacity: 0.9 }}>Select all</span>
+              </label>
+            </div>
             <div className="inclusions-grid">
               {inclusionsList.map((item) => (
                 <label key={item} className="checkbox-label">

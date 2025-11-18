@@ -160,7 +160,7 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      <hr className="sidebar-divider" />
+      {/* single divider removed as requested */}
 
       <nav
         className={`sidebar-nav ${myBHOpen ? "submenu-open" : ""}`}

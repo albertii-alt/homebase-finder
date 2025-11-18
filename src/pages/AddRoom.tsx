@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import "../styles/boardinghouse.css";
 import { useIsMobile } from "../hooks/use-mobile";
@@ -12,6 +12,12 @@ export default function AddRoom() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const location = useLocation();
+  const fromState = (location.state as any)?.from as string | undefined;
+
+  // when rendering page header, use fromState for back button target
+  // (if fromState not provided, fall back to MyBoardinghouse)
+  const backTarget = fromState ?? "/my-boardinghouse";
 
   const inclusionsList = [
     "Mattress",
@@ -22,6 +28,9 @@ export default function AddRoom() {
     "Aircon",
     "Chair",
   ];
+
+  // Select-all checkbox ref & sync (for indeterminate state)
+  const selectAllRef = React.useRef<HTMLInputElement | null>(null);
 
   // form state
   const [roomName, setRoomName] = React.useState("");
@@ -59,12 +68,29 @@ export default function AddRoom() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  React.useEffect(() => {
+    const ref = selectAllRef.current;
+    if (!ref) return;
+    const all = inclusionsList.length > 0 && inclusions.length === inclusionsList.length;
+    const some = inclusions.length > 0 && inclusions.length < inclusionsList.length;
+    ref.checked = all;
+    ref.indeterminate = some;
+  }, [inclusions, inclusionsList]);
+
   const toggleInclusion = (item: string) => {
     setInclusions((prev) =>
       prev.includes(item)
         ? prev.filter((p) => p !== item)
         : [...prev, item]
     );
+  };
+
+  const handleToggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setInclusions([...inclusionsList]);
+    } else {
+      setInclusions([]);
+    }
   };
 
   const validate = (): boolean => {
@@ -154,7 +180,7 @@ export default function AddRoom() {
         }}
       >
         <div className="page-header">
-          <Link to="/my-boardinghouse" className="back-button">
+          <Link to={backTarget} className="back-button">
             <ArrowLeft />
           </Link>
           <h1>Add Room</h1>
@@ -275,7 +301,13 @@ export default function AddRoom() {
           </div>
 
           <div className="inclusions-section">
-            <label>Inclusions:</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <label style={{ margin: 0 }}>Inclusions:</label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                <input ref={selectAllRef} type="checkbox" onChange={handleToggleSelectAll} />
+                <span style={{ opacity: 0.9 }}>Select all</span>
+              </label>
+            </div>
             <div className="inclusions-grid">
               {inclusionsList.map((item) => (
                 <label key={item} className="checkbox-label">

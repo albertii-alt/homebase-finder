@@ -387,50 +387,63 @@ export default function AddBoardinghouse() {
 
         <div className="form-container">
           <div className="form-row">
+            <div className="form-group">
+              <label>Owner Name</label>
             <input
               type="text"
               placeholder="Owner Name"
-              className="form-input half"
+              className="form-input-room"
               value={ownerName}
               onChange={(e) => setOwnerName(e.target.value)}
             />
+            </div>
+            <div className="form-group">
+              <label>Contact No.</label>
             <input
               type="text"
               placeholder="Contact No."
-              className="form-input half"
+              className="form-input-room-half"
               value={contact}
               onChange={(e) => setContact(e.target.value)}
             />
-            <Link to="/add-room" className="btn-add-room-side">
+            </div>
+            <Link
+              to="/add-room"
+              state={{ from: "/add-boardinghouse" }}
+              className="btn-add-room-side"
+            >
               Add Room
             </Link>
           </div>
 
-          <div className="form-row">
+          <div className="form-group">
+            <label>Boardinghouse Name </label>
             <input
               type="text"
               placeholder="Boardinghouse Name"
-              className="form-input"
+              className="form-input-room"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
 
           {/* Description input (kept / restored) */}
-          <div className="form-row">
+            <div className="form-group">
+              <label>Description</label>
             <textarea
               placeholder="Description"
-              className="form-input"
+              className="form-input-room"
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-          </div>
-          <div className="form-row">
+            </div>
+          <div className="form-group">
+            <label>Facebook Page URL</label>
               <input
                 type="text"
                 placeholder="Facebook Page URL"
-                className="form-input"
+                className="form-input-room"
                 value={facebook}
                 onChange={(e) => setFacebook(e.target.value)}
               />
