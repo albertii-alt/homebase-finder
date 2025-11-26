@@ -1,4 +1,4 @@
-import { Home, Building2, Plus, Settings, LogOut, ChevronDown } from "lucide-react";
+import { Home, Building2, Plus, Settings, LogOut, ChevronDown, Menu, X } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import LogoutModal from "@/components/LogoutModal"; // added import
@@ -14,6 +14,18 @@ type CurrentUser = {
 export const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.innerWidth < 1024;
+  });
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+    return window.innerWidth >= 1024;
+  });
   // submenu open state for "My Boardinghouse"
   const [myBHOpen, setMyBHOpen] = useState<boolean>(() => {
     const p = location.pathname;
@@ -30,6 +42,28 @@ export const Sidebar = () => {
     );
     setMyBHOpen(shouldOpen);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const updateViewport = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setSidebarOpen(true);
+      }
+    };
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   // load current user from localStorage and keep it reactive across tabs
   const readUser = (): CurrentUser => {
@@ -86,20 +120,66 @@ export const Sidebar = () => {
   ];
 
   return (
-    <div
-      className="sidebar"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        height: "100vh",
-        width: "260px",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 40,
-      }}
-    >
+    <>
+      {isMobile && !sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Open sidebar"
+          onClick={() => setSidebarOpen(true)}
+          style={{
+            position: "fixed",
+            top: 14,
+            left: 14,
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 12px rgba(15, 23, 42, 0.18)",
+            border: "1px solid rgba(226,232,240,0.9)",
+            zIndex: 55,
+          }}
+        >
+          <Menu size={22} color="#1f2937" />
+        </button>
+      )}
+
+      {isMobile && sidebarOpen && (
+        <div
+          role="presentation"
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.35)",
+            backdropFilter: "blur(2px)",
+            transition: "opacity 220ms ease",
+            zIndex: 45,
+          }}
+        />
+      )}
+
+      <div
+        className="sidebar"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          height: "100vh",
+          width: "260px",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          zIndex: 60,
+          transform: isMobile && !sidebarOpen ? "translateX(-105%)" : "translateX(0)",
+          transition: "transform 280ms cubic-bezier(0.2,0,0,1)",
+          boxShadow: isMobile ? "0 0 24px rgba(15,23,42,0.22)" : "none",
+          background: "white",
+          pointerEvents: !isMobile || sidebarOpen ? "auto" : "none",
+        }}
+      >
       {/* Return to Interface (upper-left inside sidebar) */}
       <button
         type="button"
@@ -112,6 +192,30 @@ export const Sidebar = () => {
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
+
+      {isMobile && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(241,245,249,0.88)",
+            border: "1px solid rgba(203,213,225,0.7)",
+            zIndex: 50,
+          }}
+        >
+          <X size={20} color="#111827" />
+        </button>
+      )}
 
       {/* hide scroll indicator when My Boardinghouse submenu is open (still scrollable) */}
       {myBHOpen && (
@@ -284,6 +388,7 @@ export const Sidebar = () => {
           setShowLogoutModal(false);
         }}
       />
-    </div>
+      </div>
+    </>
   );
 };

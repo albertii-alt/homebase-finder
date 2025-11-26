@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 type Props = {
@@ -9,7 +10,8 @@ type Props = {
 
 export default function LogoutModal({ open, onClose, onConfirm }: Props) {
   if (!open) return null;
-  return (
+
+  const modal = (
     <div
       role="dialog"
       aria-modal="true"
@@ -92,4 +94,10 @@ export default function LogoutModal({ open, onClose, onConfirm }: Props) {
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return modal;
+  }
+
+  return createPortal(modal, document.body);
 }

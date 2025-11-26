@@ -376,6 +376,142 @@
   background: #6a1b9a;
 }
 
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .main-content {
+    padding: 24px 16px;
+  }
+
+  .form-container {
+    padding: 24px 18px;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .form-row .form-group {
+    width: 100%;
+  }
+
+  .form-input-room-half,
+  .form-input-room {
+    width: 100%;
+  }
+
+  .btn-add-room-side {
+    position: static;
+    width: 100%;
+    margin-top: 4px;
+    text-align: center;
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .page-header h1 {
+    font-size: 28px;
+  }
+
+  .page-header > div {
+    margin-left: 0 !important;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .page-header .btn-add-small,
+  .page-header .btn-delete-all {
+    flex: 1 1 calc(50% - 6px);
+    justify-content: center;
+  }
+
+  .page-header .btn-delete-all {
+    min-width: 0;
+  }
+
+  .boardinghouse-card {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .bh-image {
+    width: 100%;
+    height: 180px;
+  }
+
+  .bh-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .bh-actions .btn-edit,
+  .bh-actions .btn-delete {
+    flex: 1 1 48%;
+    text-align: center;
+  }
+
+  .info-section {
+    padding: 16px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .info-grid .form-group.full-width {
+    grid-column: auto;
+  }
+
+  .inclusions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .checkbox-label {
+    font-size: 14px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn-add,
+  .form-actions .btn-cancel {
+    width: 100%;
+  }
+
+  .form-actions-with-add {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .form-actions-with-add .left-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .form-actions-with-add .btn-save-changes,
+  .form-actions-with-add .btn-cancel,
+  .btn-add-room-float {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* Edit Boardinghouse */
 .form-row-with-buttons {
   display: flex;
@@ -568,7 +704,7 @@
 }
 
 .form-input-room-half {
-  width: 220%;
+  width: 100%;
   padding: 14px 20px;
   border: 2px solid #00d4ff;
   border-radius: 12px;
@@ -579,6 +715,11 @@
 .form-input-room-half:focus {
   outline: none;
   border-color: #00a8cc;
+}
+@media (min-width: 769px) {
+  .form-row .form-input-room-half {
+    width: 220%;
+  }
 }
 .form-select-room {
   width: 100%;
@@ -748,4 +889,65 @@
 
 .btn-add-room-float:hover {
   background: #6a1b9a;
+}
+
+@media (max-width: 768px) {
+  .info-section {
+    padding: 16px;
+  }
+
+  .info-section .info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .info-section .info-grid .form-group {
+    margin-bottom: 0;
+  }
+
+  .info-section .info-grid .form-group.full-width {
+    grid-column: auto;
+  }
+
+  .inclusions-section {
+    padding: 16px;
+  }
+
+  .inclusions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .inclusions-grid .checkbox-label {
+    font-size: 14px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .form-actions .btn-add,
+  .form-actions .btn-cancel {
+    width: 100%;
+  }
+
+  .form-actions-with-add {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .form-actions-with-add .left-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .form-actions-with-add .btn-save-changes,
+  .form-actions-with-add .btn-cancel,
+  .btn-add-room-float {
+    width: 100%;
+    justify-content: center;
+  }
 }
