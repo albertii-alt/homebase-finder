@@ -263,10 +263,7 @@ const Auth = () => {
         <button
           className="nav-arrow arrow-left"
           type="button"
-          onClick={() => {
-            // navigate to static index.html
-            window.location.href = "/index";
-          }}
+          onClick={() => navigate("/")}
           aria-label="Go to home"
         >
           {/* white chevron-left icon */}
@@ -278,9 +275,7 @@ const Auth = () => {
         <button
           className="nav-arrow arrow-right"
           type="button"
-          onClick={() => {
-            window.location.href = "/index";
-          }}
+          onClick={() => navigate("/")}
           aria-label="Go to home"
         >
           {/* white chevron-right icon */}
@@ -300,7 +295,7 @@ const Auth = () => {
         {/* Logo */}
         <div className={`auth-logo ${isLogin ? "logo-left" : "logo-right"}`}>
           <div className="logo-icon">
-            <img className="img-logo" src="/src/assets/HomebaseFinderOfficialLogo.png" alt="Homebase Finder Logo" />
+            <img className="img-logo" src="/HomebaseFinderOfficialLogo.png" alt="Homebase Finder Logo" />
           </div>
           <div className="logo-text">
             <div className="logo-title">HOMEBASE</div>

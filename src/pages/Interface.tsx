@@ -326,7 +326,7 @@ const Interface = () => {
             {/* Logo + small profile on left */}
             <div className="flex items-center gap-4">
               <div className="logo-icon">
-                <img className="img-logo" src="/src/assets/HomebaseFinderOfficialLogo.png" alt="Homebase Finder Logo" />
+                <img className="img-logo" src="/HomebaseFinderOfficialLogo.png" alt="Homebase Finder Logo" />
               </div>
               <div className="logo-text">
                 <div className="logo-title">HOMEBASE</div>
